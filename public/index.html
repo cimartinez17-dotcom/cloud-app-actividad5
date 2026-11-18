@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestión Cloud | Arquitectura Escalable</title>
+  <style>
+    :root { --primary: #0f172a; --accent: #2563eb; --bg: #f8fafc; --card: #ffffff; --text: #1e293b; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+    .container { max-width: 960px; margin: 0 auto; }
+    header { background: var(--primary); color: white; padding: 20px 24px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    header h1 { margin: 0; font-size: 1.35rem; }
+    .badge { background: #10b981; color: #064e3b; font-weight: 700; padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+    .card { background: var(--card); padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
+    .metric-title { font-size: 0.8rem; color: #64748b; text-transform: uppercase; font-weight: 600; }
+    .metric-val { font-size: 1.4rem; font-weight: 700; color: var(--primary); margin-top: 6px; }
+    .form-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
+    input, select, button { padding: 10px 14px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.95rem; }
+    input { flex: 1; min-width: 180px; }
+    button { background: var(--accent); color: white; border: none; font-weight: 600; cursor: pointer; }
+    button:hover { background: #1d4ed8; }
+    button.stress { background: #dc2626; }
+    button.stress:hover { background: #b91c1c; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { text-align: left; padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 0.92rem; }
+    th { background: #f1f5f9; color: #475569; }
+    .del-btn { background: #ef4444; padding: 5px 10px; font-size: 0.8rem; }
+    #logBox { margin-top: 12px; font-family: monospace; font-size: 0.85rem; background: #0f172a; color: #38bdf8; padding: 12px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Plataforma Cloud de Proyectos Técnicos</h1>
+        <small>Despliegue PaaS • Balanceo Dinámico & Seguridad HTTP</small>
+      </div>
+      <span class="badge" id="statusBadge">Conectando...</span>
+    </header>
+
+    <div class="grid">
+      <div class="card"><div class="metric-title">Nodo / Instancia Activa</div><div class="metric-val" id="mInstancia">--</div></div>
+      <div class="card"><div class="metric-title">Memoria Asignada (RSS)</div><div class="metric-val" id="mMemoria">--</div></div>
+      <div class="card"><div class="metric-title">Carga CPU (1 min)</div><div class="metric-val" id="mCarga">--</div></div>
+      <div class="card"><div class="metric-title">Tiempo Activo</div><div class="metric-val" id="mUptime">--</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom: 20px;">
+      <h3 style="margin-top:0;">Registrar Proyecto / Recurso en la Nube</h3>
+      <form id="regForm" class="form-row">
+        <input type="text" id="nombre" placeholder="Nombre del proyecto o recurso" required />
+        <input type="text" id="responsable" placeholder="Responsable o área" required />
+        <select id="estado">
+          <option value="Activo">Activo</option>
+          <option value="En Pruebas">En Pruebas</option>
+          <option value="Completado">Completado</option>
+        </select>
+        <button type="submit">Guardar en Nube</button>
+      </form>
+
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Proyecto / Recurso</th><th>Responsable</th><th>Estado</th><th>Fecha</th><th>Acción</th></tr>
+        </thead>
+        <tbody id="tablaBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">Simulación de Carga Dinámica (Prueba de Balanceo)</h3>
+      <p style="font-size:0.9rem; color:#475569;">Ejecuta ráfagas de procesamiento criptográfico concurrente para evaluar el comportamiento del balanceador y la respuesta bajo estrés.</p>
+      <button class="stress" onclick="ejecutarEstres()">Lanzar Ráfaga de Carga (5 Peticiones Concurrentes)</button>
+      <div id="logBox">Listo para ejecutar pruebas de rendimiento...</div>
+    </div>
+  </div>
+
+  <script>
+    async function cargarTelemetria() {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      document.getElementById('statusBadge').textContent = `● ${data.estado} (HTTPS)`;
+      document.getElementById('mInstancia').textContent = data.instancia;
+      document.getElementById('mMemoria').textContent = `${data.memoria_usada_mb} MB`;
+      document.getElementById('mCarga').textContent = data.carga_promedio_1m;
+      document.getElementById('mUptime').textContent = `${data.tiempo_activo_seg} s`;
+    }
+
+    async function cargarRegistros() {
+      const res = await fetch('/api/registros');
+      const data = await res.json();
+      const tbody = document.getElementById('tablaBody');
+      tbody.innerHTML = data.datos.map(r => `
+        <tr>
+          <td><strong>${r.id}</strong></td>
+          <td>${r.nombre}</td>
+          <td>${r.responsable}</td>
+          <td>${r.estado}</td>
+          <td>${r.fecha}</td>
+          <td><button class="del-btn" onclick="eliminar('${r.id}')">Eliminar</button></td>
+        </tr>
+      `).join('');
+    }
+
+    document.getElementById('regForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await fetch('/api/registros', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: document.getElementById('nombre').value,
+          responsable: document.getElementById('responsable').value,
+          estado: document.getElementById('estado').value
+        })
+      });
+      e.target.reset();
+      cargarRegistros();
+      cargarTelemetria();
+    });
+
+    async function eliminar(id) {
+      await fetch(`/api/registros/${id}`, { method: 'DELETE' });
+      cargarRegistros();
+    }
+
+    async function ejecutarEstres() {
+      const log = document.getElementById('logBox');
+      log.textContent = 'Ejecutando 5 peticiones concurrentes de carga CPU en la nube...';
+      const t0 = performance.now();
+      const peticiones = Array.from({ length: 5 }, (_, i) =>
+        fetch('/api/stress?ms=1200').then(r => r.json()).then(d => `Req #${i+1}: ${d.duracion_ms}ms en ${d.instancia}`)
+      );
+      const resultados = await Promise.all(peticiones);
+      const total = (performance.now() - t0).toFixed(0);
+      log.innerHTML = `Completado en ${total} ms:<br>` + resultados.join('<br>');
+      cargarTelemetria();
+    }
+
+    cargarTelemetria();
+    cargarRegistros();
+    setInterval(cargarTelemetria, 5000);
+  </script>
+</body>
+</html>
